@@ -1,0 +1,13 @@
+[run]
+branch = True
+include = swiftuploader*
+source = swiftuploader
+
+[xml]
+show_missing = True
+precision = 0
+
+[report]
+show_missing = True
+source = swiftuploader
+omit = swiftuploader/tests/*
