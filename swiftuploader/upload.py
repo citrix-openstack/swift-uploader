@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import logging
 import optparse
 import os
@@ -44,7 +46,7 @@ def get_content_type(filepath):
     split_fn = filename.lower().split('.')
     if split_fn[-1] in ['gz']:
         split_fn = split_fn[:-1]
-    if re.matches('^[0-9-]*$', split_fn[-1]):
+    if re.match('^[0-9-]*$', split_fn[-1]) is not None:
         split_fn = split_fn[:-1]
     if split_fn[-1] in ['txt', 'log', 'conf', 'sh']:
         return 'text/plain'
@@ -216,8 +218,6 @@ class SwiftUploader(object):
         self.conn.object_store.upload_object(container=container_name,
                                              name=location,
                                              data=contents)
-
-
 
 def main():
     parser = get_parser()
