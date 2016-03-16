@@ -2,6 +2,7 @@ import logging
 import optparse
 import os
 import sys
+import re
 import time
 import hashlib
 
@@ -42,6 +43,8 @@ def get_content_type(filepath):
     filename=os.path.split(filepath)[-1]
     split_fn = filename.lower().split('.')
     if split_fn[-1] in ['gz']:
+        split_fn = split_fn[:-1]
+    if re.matches('^[0-9-]*$', split_fn[-1]):
         split_fn = split_fn[:-1]
     if split_fn[-1] in ['txt', 'log', 'conf', 'sh']:
         return 'text/plain'
@@ -129,9 +132,9 @@ class SwiftUploader(object):
 
 
     def upload_one_file(self, container, source, target, attempt=0):
-        self.logger.info('Uploading %s to %s', source, target)
         content_encoding=get_content_encoding(source)
         content_type=get_content_type(source)
+        self.logger.info('Uploading %s to %s[%s:%s]', source, target, content_encoding, content_type)
 
         obj = None
         chksum = -1
@@ -165,6 +168,9 @@ class SwiftUploader(object):
             dir_listing = os.listdir(full_path)
             self._order_files(dir_listing)
             for subfile in dir_listing:
+                # Ignore symlinks
+                if os.path.islink(os.path.join(full_path, subfile)):
+                    continue
                 index = index + self._upload(local_dir,
                                              os.path.join(filename, subfile),
                                              cf_prefix, container_name)
