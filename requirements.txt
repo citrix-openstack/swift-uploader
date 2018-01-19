@@ -1,2 +1,3 @@
 pbr<1.0.0
+os-client-config
 python-openstacksdk
