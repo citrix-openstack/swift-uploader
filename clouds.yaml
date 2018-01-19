@@ -1,0 +1,8 @@
+clouds:
+ mordred:
+   region_name: DFW
+   auth:
+     username: 'citrix.nodepool2'
+     password: 'Node88p00l'
+     project_name: XXXXXX
+     auth_url: 'https://identity.api.rackspacecloud.com/v2.0/'

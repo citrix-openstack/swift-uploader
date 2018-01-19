@@ -3,6 +3,7 @@
 import logging
 import optparse
 import os
+import os_client_config
 import sys
 import re
 import time
@@ -12,8 +13,20 @@ from openstack import connection
 from openstack import profile
 from openstack import utils
 
+CLOUD_CONF = "/home/jenkins/.config/openstack/clouds.yaml"
+
+
 class UploadException(Exception):
     pass
+
+
+class Opts(object):
+    def __init__(self, cloud_name='devstack-admin', debug=False):
+        self.cloud = cloud_name
+        self.debug = debug
+        # Use identity v3 API for examples.
+        self.identity_api_version = '3'
+
 
 def get_parser():
     usage = "usage: %prog [options] <source directory> <target path>"
@@ -21,18 +34,10 @@ def get_parser():
     parser = optparse.OptionParser(usage=usage)
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
                       default=False, help='enable verbose (debug) logging')
-    parser.add_option('--auth_url', dest='auth_url', default="https://identity.api.rackspacecloud.com/v2.0/",
-                      help='auth url')
-    parser.add_option('--username', dest='username', default="citrix.nodepool2",
-                      help='Username')
-    parser.add_option('--project_name', dest='project_name', default="874240",
-                      help='Project Name')
     parser.add_option('--password', dest='password',
                       help='Password')
     parser.add_option('-c', '--container', dest='container', default="XenLogs",
                       help='Container to upload to.')
-    parser.add_option('-r', '--region', dest='region', default='IAD',
-                      help='Region to upload to.')
 
     return parser
 
@@ -109,28 +114,26 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f %s%s" % (num, 'Yi', suffix)
 
 
-def create_connection(auth_url, region, project_name, username, password):
-    prof = profile.Profile()
-    prof.set_region(profile.Profile.ALL, region)
-
-    conn = connection.Connection(
-        profile=prof,
-        user_agent='citrixswiftuploader',
-        auth_url=auth_url,
-        project_name=project_name,
-        username=username,
-        password=password
-    )
+def create_connection(password):
+    cloud_conf = open(CLOUD_CONF,"r+")
+    s=cloud_conf.read()
+    cloud_conf.seek(0,0)
+    cloud_conf.write(s.replace("XXXXXX", "\'" + password + "\'"))
+    cloud_conf.close()
+    opts = Opts(cloud_name="mordred")
+    occ = os_client_config.OpenStackConfig()
+    cloud = occ.get_one_cloud(opts.cloud)
+    conn = connection.from_config(cloud_config=cloud, options=opts)
     conn.authorize()
     return conn
 
 class SwiftUploader(object):
     logger = logging.getLogger('citrix.swiftupload')
 
-    def __init__(self, auth_url, region, project_name, username, password):
-        self.conn = create_connection(auth_url, region,
-                                      project_name,
-                                      username, password)
+    def __init__(self, password):
+        if password:
+
+        self.conn = create_connection(password)
 
 
     def upload_one_file(self, container, source, target, attempt=0):
@@ -235,11 +238,7 @@ def main():
     local_dirs = args[:-1]
     cf_prefix = args[-1]
 
-    uploader = SwiftUploader(options.auth_url,
-                             options.region,
-                             options.project_name,
-                             options.username,
-                             options.password)
+    uploader = SwiftUploader(options.password)
     uploader.upload(options.container, local_dirs, cf_prefix)
 
 
