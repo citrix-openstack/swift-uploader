@@ -3,17 +3,31 @@
 import logging
 import optparse
 import os
+import os_client_config
 import sys
 import re
 import time
 import hashlib
+import yaml
 
 from openstack import connection
-from openstack import profile
-from openstack import utils
+
+
+PWD_COVER = ''
+
 
 class UploadException(Exception):
     pass
+
+
+class cloud_conf(object):
+    def __init__(self, cloud_name='devstack-admin', debug=False,
+                 identity_api_version='3'):
+        self.cloud = cloud_name
+        self.debug = debug
+        # Use identity v3 API for examples.
+        self.identity_api_version = identity_api_version
+
 
 def get_parser():
     usage = "usage: %prog [options] <source directory> <target path>"
@@ -21,18 +35,12 @@ def get_parser():
     parser = optparse.OptionParser(usage=usage)
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
                       default=False, help='enable verbose (debug) logging')
-    parser.add_option('--auth_url', dest='auth_url', default="https://identity.api.rackspacecloud.com/v2.0/",
-                      help='auth url')
-    parser.add_option('--username', dest='username', default="citrix.nodepool2",
-                      help='Username')
-    parser.add_option('--project_name', dest='project_name', default="874240",
-                      help='Project Name')
     parser.add_option('--password', dest='password',
                       help='Password')
+    parser.add_option('--cloudname', dest='cloud_name',
+                      help='Cloud name to connect to.')
     parser.add_option('-c', '--container', dest='container', default="XenLogs",
                       help='Container to upload to.')
-    parser.add_option('-r', '--region', dest='region', default='IAD',
-                      help='Region to upload to.')
 
     return parser
 
@@ -108,29 +116,32 @@ def sizeof_fmt(num, suffix='B'):
         num /= 1024.0
     return "%.1f %s%s" % (num, 'Yi', suffix)
 
+def set_cloud_password(password, cloud_name):
+    main_path = os.path.expanduser('~')
+    conf_file = main_path + "/.config/openstack/clouds.yaml"
+    if not os.path.exists(conf_file):
+        conf_file = "/etc/openstack/clouds.yaml"
+    with open(conf_file) as f:
+        clouds_dict = yaml.load(f)
+        clouds_dict['clouds'][cloud_name]['auth']['password'] = password
+    with open(conf_file, "w") as f:
+        yaml.dump(clouds_dict, f)
 
-def create_connection(auth_url, region, project_name, username, password):
-    prof = profile.Profile()
-    prof.set_region(profile.Profile.ALL, region)
-
-    conn = connection.Connection(
-        profile=prof,
-        user_agent='citrixswiftuploader',
-        auth_url=auth_url,
-        project_name=project_name,
-        username=username,
-        password=password
-    )
+def create_connection(password, cloud_name):
+    set_cloud_password(password, cloud_name)
+    opts = cloud_conf(cloud_name)
+    occ = os_client_config.OpenStackConfig()
+    cloud = occ.get_one_cloud(opts.cloud)
+    conn = connection.from_config(cloud_config=cloud, options=opts)
+    set_cloud_password(PWD_COVER, cloud_name)
     conn.authorize()
     return conn
 
 class SwiftUploader(object):
     logger = logging.getLogger('citrix.swiftupload')
 
-    def __init__(self, auth_url, region, project_name, username, password):
-        self.conn = create_connection(auth_url, region,
-                                      project_name,
-                                      username, password)
+    def __init__(self, password, cloud_name):
+        self.conn = create_connection(password, cloud_name)
 
 
     def upload_one_file(self, container, source, target, attempt=0):
@@ -234,12 +245,7 @@ def main():
 
     local_dirs = args[:-1]
     cf_prefix = args[-1]
-
-    uploader = SwiftUploader(options.auth_url,
-                             options.region,
-                             options.project_name,
-                             options.username,
-                             options.password)
+    uploader = SwiftUploader(options.password, options.cloud_name)
     uploader.upload(options.container, local_dirs, cf_prefix)
 
 

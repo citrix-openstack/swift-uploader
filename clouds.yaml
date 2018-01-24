@@ -1,0 +1,8 @@
+clouds:
+ rax:
+   region_name: DFW
+   auth:
+     username: 'citrix.nodepool2'
+     password: ''
+     project_name: '874240'
+     auth_url: 'https://identity.api.rackspacecloud.com/v2.0/'
