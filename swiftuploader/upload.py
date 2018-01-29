@@ -160,7 +160,7 @@ class SwiftUploader(object):
                                                        content_encoding=content_encoding,
                                                        content_type=content_type)
 
-        if (obj == None):
+        if (obj is None):
             if attempt < 5:
                 self.logger.error('Upload of %s to %s failed - retrying'%(source, target))
                 self.upload_one_file(container, source, target, attempt+1)
@@ -206,7 +206,7 @@ class SwiftUploader(object):
             if cont.name == container_name:
                 container = cont
                 break
-        if container == None:
+        if container is None:
             # pylint: disable=no-member
             container = self.conn.object_store.create_container(name=container_name)
 
