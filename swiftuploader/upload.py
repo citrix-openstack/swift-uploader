@@ -3,7 +3,6 @@
 import logging
 import optparse
 import os
-import os_client_config
 import sys
 import re
 import time
@@ -129,10 +128,7 @@ def set_cloud_password(password, cloud_name):
 
 def create_connection(password, cloud_name):
     set_cloud_password(password, cloud_name)
-    opts = cloud_conf(cloud_name)
-    occ = os_client_config.OpenStackConfig()
-    cloud = occ.get_one_cloud(opts.cloud)
-    conn = connection.from_config(cloud_config=cloud, options=opts)
+    conn = connection.from_config(cloud=cloud_name)
     set_cloud_password(PWD_COVER, cloud_name)
     conn.authorize()
     return conn
